@@ -104,9 +104,9 @@ with open(os.path.join(root_path, 'variable_lp', '__init__.py')) as f:
 # - optional (bool)
 
 cython_modules = {
-    os.path.join('variable_lp', '_varlp_f32.pyx'): {
+    os.path.join('variable_lp', '_cython_impl_f32.pyx'): {
         'include_dirs': [np.get_include()]},
-    os.path.join('variable_lp', '_varlp_f64.pyx'): {
+    os.path.join('variable_lp', '_cython_impl_f64.pyx'): {
         'include_dirs': [np.get_include()]}
 }
 
@@ -145,7 +145,7 @@ def extension_from_spec(dict_item):
 extensions = [extension_from_spec(item) for item in cython_modules.items()]
 
 setup(
-    name='variable_lp',
+    name='variable-lp',
 
     version=version,
 

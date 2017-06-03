@@ -21,7 +21,7 @@ from odl.discr import DiscreteLp
 from odl.operator import Operator, PointwiseNorm
 from odl.space import ProductSpace
 from odl.util import writable_array
-from . import _cython_impl, _numba_impl, _numpy_impl, _gpuarray_impl
+from variable_lp import _cython_impl, _numba_impl, _numpy_impl, _gpuarray_impl
 
 
 __all__ = ('proximal_variable_lp_modular',

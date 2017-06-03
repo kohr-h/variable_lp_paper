@@ -8,7 +8,10 @@
 
 """Implementations of variable Lp functionality."""
 
+__version__ = '0.1.0.dev0'
+
 __all__ = ('prox',)
+
 
 from .prox import *
 __all__ += prox.__all__
