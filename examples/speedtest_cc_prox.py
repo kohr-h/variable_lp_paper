@@ -2,12 +2,10 @@ import numpy as np
 import pygpu
 
 import odl
-from odl.solvers.nonsmooth._varlp.varlp_npy import varlp_cc_prox_factor_npy
-from odl.solvers.nonsmooth._varlp.varlp_numba import varlp_cc_prox_factor_numba
-from odl.solvers.nonsmooth._varlp.varlp_cython import (
-    varlp_cc_prox_factor_cython)
-from odl.solvers.nonsmooth._varlp.varlp_gpuary import (
-    varlp_cc_prox_factor_gpuary)
+from variable_lp._numpy_impl import varlp_cc_prox_factor_npy
+from variable_lp._numba_impl import varlp_cc_prox_factor_numba
+from variable_lp._cython_impl import varlp_cc_prox_factor_cython
+from variable_lp._gpuarray_impl import varlp_cc_prox_factor_gpuary
 
 size = int(1e6)
 sigma = 1.0

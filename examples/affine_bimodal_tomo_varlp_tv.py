@@ -2,8 +2,9 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
 import odl
+import scipy
+import variable_lp
 
 
 # --- Reconstruction space and phantom --- #
@@ -88,7 +89,7 @@ exponent.show()
 gradient = odl.Gradient(reco_space, pad_mode='order1')
 lin_ops = [ray_trafo, gradient]
 data_matching = odl.solvers.L2NormSquared(ray_trafo.range).translated(bad_data)
-varlp_func = odl.solvers.VariableLpModular(gradient.range, exponent,
+varlp_func = variable_lp.VariableLpModular(gradient.range, exponent,
                                            impl='cython')
 # Left-multiplication version
 reg_param = 1e2

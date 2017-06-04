@@ -10,13 +10,13 @@ larger (convex conjugate) or smaller (proximal) value, respectively.
 
 import numpy as np
 import odl
-from odl.solvers import VariableLpModular
 from odl.util import noise_element
+import variable_lp
 
 space = odl.uniform_discr(0, 1, 3)
 exponent = space.element([1, 1.5, 2])
 
-modular = VariableLpModular(space, exponent, impl='numpy')
+modular = variable_lp.VariableLpModular(space, exponent, impl='numba_cpu')
 
 # Margin of error
 EPS = 1e-6

@@ -10,8 +10,11 @@
 
 __version__ = '0.1.0.dev0'
 
-__all__ = ('prox',)
+__all__ = ('functionals', 'proximal_operators')
 
 
-from .prox import *
-__all__ += prox.__all__
+from .functionals import *
+__all__ += functionals.__all__
+
+from .proximal_operators import *
+__all__ += proximal_operators.__all__

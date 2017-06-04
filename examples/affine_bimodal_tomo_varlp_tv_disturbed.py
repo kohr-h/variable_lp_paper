@@ -1,8 +1,9 @@
 """Bimodal tomography with variable Lp TV regularizer."""
 
 import numpy as np
-import scipy
 import odl
+import scipy
+import variable_lp
 
 
 # --- Reconstruction space and phantom --- #
@@ -88,7 +89,7 @@ exponent.asarray()[10:50, 59:69] = 1
 gradient = odl.Gradient(reco_space, pad_mode='order1')
 lin_ops = [ray_trafo, gradient]
 data_matching = odl.solvers.L2NormSquared(ray_trafo.range).translated(bad_data)
-varlp_func = odl.solvers.VariableLpModular(gradient.range, exponent,
+varlp_func = variable_lp.VariableLpModular(gradient.range, exponent,
                                            impl='cython')
 # Left-multiplication version
 reg_param = 1e2

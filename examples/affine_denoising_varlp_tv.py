@@ -1,8 +1,9 @@
 """Denoising with variable Lp TV regularizer."""
 
 import numpy as np
-import scipy
 import odl
+import scipy
+import variable_lp
 
 
 # --- Reconstruction space, phantom and data --- #
@@ -68,7 +69,7 @@ exponent.show(force_show=True)
 gradient = odl.Gradient(reco_space, pad_mode='order1')
 lin_ops = [odl.IdentityOperator(reco_space), gradient]
 data_matching = odl.solvers.L2NormSquared(reco_space).translated(data)
-varlp_func = odl.solvers.VariableLpModular(gradient.range, exponent,
+varlp_func = variable_lp.VariableLpModular(gradient.range, exponent,
                                            impl='cython')
 # Left-multiplication version
 reg_param = 2e0

@@ -2,8 +2,9 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy
 import odl
+import scipy
+import variable_lp
 
 
 # --- Reconstruction space and phantom --- #
@@ -29,7 +30,7 @@ geometry = odl.tomo.FanFlatGeometry(
     angle_partition, detector_partition, src_radius=40, det_radius=40)
 
 # Ray transform (= forward projection).
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cpu')
 
 # Read data
 bad_data = ray_trafo.range.element(np.load('affine_tomo_bad_data.npy'))
@@ -86,7 +87,7 @@ exponent.show()
 gradient = odl.Gradient(reco_space, pad_mode='order1')
 lin_ops = [ray_trafo, gradient]
 data_matching = odl.solvers.L2NormSquared(ray_trafo.range).translated(bad_data)
-varlp_func = odl.solvers.VariableLpModular(gradient.range, exponent,
+varlp_func = variable_lp.VariableLpModular(gradient.range, exponent,
                                            impl='cython')
 # Left-multiplication version
 reg_param = 1e2

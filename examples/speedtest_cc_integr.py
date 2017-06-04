@@ -2,12 +2,10 @@ import numpy as np
 import pygpu
 
 import odl
-from odl.solvers.nonsmooth._varlp.varlp_npy import varlp_cc_integrand_npy
-from odl.solvers.nonsmooth._varlp.varlp_numba import varlp_cc_integrand_numba
-from odl.solvers.nonsmooth._varlp.varlp_cython import (
-    varlp_cc_integrand_cython)
-from odl.solvers.nonsmooth._varlp.varlp_gpuary import (
-    varlp_cc_integrand_gpuary)
+from variable_lp._numpy_impl import varlp_cc_integrand_npy
+from variable_lp._numba_impl import varlp_cc_integrand_numba
+from variable_lp._cython_impl import varlp_cc_integrand_cython
+from variable_lp._gpuarray_impl import varlp_cc_integrand_gpuary
 
 size = int(1e6)
 dtype = np.dtype('float64')
