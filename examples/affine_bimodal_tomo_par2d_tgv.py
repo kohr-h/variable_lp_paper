@@ -1,4 +1,4 @@
-"""Reference TGV denoising of the affine example."""
+"""Reference TGV reconstruction of the affine tomography example."""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,7 +27,7 @@ detector_partition = odl.uniform_partition(-15, 15, 300)
 geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 
 # Ray transform (= forward projection).
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cpu')
 
 # Read data
 # data = ray_trafo(phantom)

@@ -27,14 +27,15 @@ detector_partition = odl.uniform_partition(-15, 15, 300)
 geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 
 # Ray transform (= forward projection).
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cpu')
 
-# Read data
-# data = ray_trafo(phantom)
-# good_data = data + 0.01 * np.max(data) * odl.phantom.white_noise(data.space)
-# bad_data = data + 0.1 * np.max(data) * odl.phantom.white_noise(data.space)
-bad_data = ray_trafo.range.element(
-    np.load('affine_tomo_par2d_limang_bad_data.npy'))
+# Generate data with predictable randomness to make them reproducible
+data = ray_trafo(phantom)
+with odl.util.NumpyRandomSeed(123):
+    good_data = (data +
+                 0.01 * np.max(data) * odl.phantom.white_noise(data.space))
+    bad_data = (data +
+                0.1 * np.max(data) * odl.phantom.white_noise(data.space))
 
 
 # --- Set up the inverse problem for the bad data --- #
