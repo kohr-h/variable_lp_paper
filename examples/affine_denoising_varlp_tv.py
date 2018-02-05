@@ -2,14 +2,14 @@
 
 import numpy as np
 import odl
-import scipy
+import imageio
 import variable_lp
 
 
 # --- Reconstruction space, phantom and data --- #
 
 # Transform from 'ij' storage to 'xy'
-image = np.rot90(scipy.misc.imread('affine_phantom.png'), k=-1)
+image = np.rot90(imageio.imread('affine_phantom.png'), k=-1)
 
 reco_space = odl.uniform_discr([-10, -10], [10, 10], image.shape,
                                dtype='float32')
