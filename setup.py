@@ -34,11 +34,6 @@ import sys
 root_path = os.path.dirname(__file__)
 
 
-requires = open(os.path.join(root_path, 'requirements.txt')).readlines()
-test_requires = open(
-    os.path.join(root_path, 'test_requirements.txt')).readlines()
-
-
 class PyTest(TestCommand):
     user_options = [('pytest-args=', 'a', "Arguments to pass to py.test")]
 
@@ -142,6 +137,7 @@ def extension_from_spec(dict_item):
                      language=language,
                      optional=optional)
 
+
 extensions = [extension_from_spec(item) for item in cython_modules.items()]
 
 setup(
@@ -154,7 +150,7 @@ setup(
     url='https://github.com/kohr-h/variable_lp_paper',
 
     author='Holger Kohr',
-    author_email='kohr@cwi.nl',
+    author_email='kohr@zoho.com',
 
     license='MPL-2.0',
 
@@ -166,10 +162,12 @@ setup(
     package_dir={'variable_lp': 'variable_lp'},
     ext_modules=cythonize(extensions),
 
-    install_requires=[requires],
+    install_requires=['odl', 'numpy'],
     tests_require=['pytest'],
     extras_require={
-        'testing': test_requires,
+        'cython': ['cython'],
+        'numba': ['numba'],
+        'pygpu': ['pygpu'],
     },
 
     cmdclass={'test': PyTest},
