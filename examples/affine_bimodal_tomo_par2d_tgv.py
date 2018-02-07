@@ -1,9 +1,10 @@
-"""Reference TGV reconstruction of the affine tomography example."""
+"""Bimodal tomography with TGV regularizer."""
 
 import matplotlib.pyplot as plt
 import numpy as np
 import imageio
 import odl
+from odl.contrib import fom
 
 
 # --- Reconstruction space and phantom --- #
@@ -13,13 +14,13 @@ image = np.rot90(imageio.imread('affine_phantom.png'), k=-1)
 
 reco_space = odl.uniform_discr([-10, -10], [10, 10], image.shape,
                                dtype='float32')
-phantom = reco_space.element(image)
+phantom = reco_space.element(image) / np.max(image)
 
 
 # --- Set up the forward operator --- #
 
 # Make a fan beam geometry with flat detector
-# Angles: uniformly spaced, n = 360, min = 0, max = pi
+# Angles: uniformly spaced, n = 360, min = 0, max = 3/4 * pi (limited angle)
 angle_partition = odl.uniform_partition(0, 3 * np.pi / 4, 270)
 # Detector: uniformly sampled, n = 300, min = -15, max = 15
 detector_partition = odl.uniform_partition(-15, 15, 300)
@@ -29,14 +30,13 @@ geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 # Ray transform (= forward projection).
 ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cpu')
 
-# Read data
-# data = ray_trafo(phantom)
-# good_data = data + 0.01 * np.max(data) * odl.phantom.white_noise(data.space)
-# bad_data = data + 0.1 * np.max(data) * odl.phantom.white_noise(data.space)
-good_data = ray_trafo.range.element(
-    np.load('affine_tomo_par2d_limang_good_data.npy'))
-bad_data = ray_trafo.range.element(
-    np.load('affine_tomo_par2d_limang_bad_data.npy'))
+# Generate data with predictable randomness to make them reproducible
+data = ray_trafo(phantom)
+with odl.util.NumpyRandomSeed(123):
+    good_data = (data +
+                 0.01 * np.max(data) * odl.phantom.white_noise(data.space))
+    bad_data = (data +
+                0.1 * np.max(data) * odl.phantom.white_noise(data.space))
 
 
 # --- Set up the inverse problem --- #
@@ -69,16 +69,36 @@ lin_ops = [
 # 4. box indicator on the reconstruction space
 
 data_matching = odl.solvers.L2NormSquared(ray_trafo.range).translated(bad_data)
-reg_param1 = 2.5e1
+reg_param1 = 3e-1
 regularizer1 = reg_param1 * odl.solvers.L1Norm(gradient.range)
-reg_param2 = 5e0
+reg_param2 = 3e-1
 regularizer2 = reg_param2 * odl.solvers.L1Norm(eps.range)
-box_constr = odl.solvers.IndicatorBox(reco_space, 0, 255)
+box_constr = odl.solvers.IndicatorBox(reco_space, 0, 1)
 
 g = [data_matching, regularizer1, regularizer2, box_constr]
 
 # Don't use f
 f = odl.solvers.ZeroFunctional(domain)
+
+# Use standard strategy to set solver parameters (see doc of
+# `douglas_rachford_pd` for more on the convergence criterion).
+# When computing the operator norms, we need to be a bit careful with the
+# start value for differential operators (no constants).
+linop_0_norm = odl.power_method_opnorm(lin_ops[0], maxiter=10)
+xstart = ray_trafo.adjoint(good_data)
+dom_xstart = domain.element([xstart, [xstart, xstart]])
+linop_1_norm = odl.power_method_opnorm(lin_ops[1], xstart=dom_xstart,
+                                       maxiter=20)
+linop_2_norm = odl.power_method_opnorm(lin_ops[2], xstart=dom_xstart,
+                                       maxiter=20)
+# No need for the fourth one since it's used in an indicator function
+# where the step size doesn't matter
+opnorms = [linop_0_norm, linop_1_norm, linop_2_norm]
+num_ops = len(opnorms)
+tau = 0.1
+sigmas = [3 / (tau * num_ops * opnorm ** 2) for opnorm in opnorms]
+sigmas.append(1)
+
 
 # Create callback that prints the iteration number and shows partial results
 callback_fig = None
@@ -86,7 +106,7 @@ callback_fig = None
 
 def show_first(x):
     global callback_fig
-    callback_fig = x[0].show('iterate', clim=[0, 255], fig=callback_fig)
+    callback_fig = x[0].show('iterate', clim=[0, 1], fig=callback_fig)
 
 
 # Uncomment the combined callback to also display iterates
@@ -99,16 +119,26 @@ callback = (odl.solvers.CallbackApply(show_first, step=10) &
 # See douglas_rachford_pd doc for more information.
 x = domain.zero()
 odl.solvers.douglas_rachford_pd(x, f, g, lin_ops,
-                                tau=0.1, sigma=[0.1, 0.02, 0.001, 1], lam=1.5,
-                                niter=400, callback=callback)
+                                tau=tau, sigma=sigmas, lam=1.5,
+                                niter=200, callback=callback)
 
+
+# --- Compute FOMs --- #
+
+with open('affine_bimodal_tomo_par2d_tgv_fom.txt', 'w+') as f:
+    psnr = fom.psnr(x[0], phantom)
+    print('PSNR:', psnr, file=f)
+    ssim = fom.ssim(x[0], phantom)
+    print('SSIM:', ssim, file=f)
+    haarpsi = fom.haarpsi(x[0], phantom)
+    print('HaarPSI:', haarpsi, file=f)
 
 # --- Display images --- #
 
 
-# phantom.show(title='Phantom', clim=[-5, 5])
+# phantom.show(title='Phantom', clim=[0, 1])
 # data.show(title='Data')
-x[0].show(title='TGV Reconstruction', clim=[0, 255])
+x[0].show(title='TGV Reconstruction', clim=[0, 1])
 # Display horizontal profile
 # fig = phantom.show(coords=[None, -4.25])
 # x.show(coords=[None, -4.25], fig=fig, force_show=True)
@@ -119,7 +149,7 @@ reco_slice = x[0][:, 35]
 x_vals = reco_space.grid.coord_vectors[0]
 plt.figure()
 axes = plt.gca()
-axes.set_ylim([80, 270])
+axes.set_ylim([0.3, 1.1])
 plt.plot(x_vals, phantom_slice, label='Phantom')
 plt.plot(x_vals, reco_slice, label='TGV reconstruction')
 plt.legend()
@@ -129,7 +159,7 @@ plt.savefig('affine_bimodal_tomo_tgv_par2d_profile.png')
 
 # Display full image
 plt.figure()
-plt.imshow(np.rot90(x[0]), cmap='bone', clim=[0, 255])
+plt.imshow(np.rot90(x[0]), cmap='bone', clim=[0, 1])
 axes = plt.gca()
 axes.axis('off')
 plt.tight_layout()

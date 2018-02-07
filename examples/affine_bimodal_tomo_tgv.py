@@ -1,4 +1,4 @@
-"""Reference TGV denoising of the affine example."""
+"""Reference TGV reconstruction of the bimodal tomography example."""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +13,7 @@ image = np.rot90(imageio.imread('affine_phantom.png'), k=-1)
 
 reco_space = odl.uniform_discr([-10, -10], [10, 10], image.shape,
                                dtype='float32')
-phantom = reco_space.element(image)
+phantom = reco_space.element(image) / np.max(image)
 
 
 # --- Set up the forward operator --- #
@@ -28,11 +28,16 @@ geometry = odl.tomo.FanFlatGeometry(
     angle_partition, detector_partition, src_radius=40, det_radius=40)
 
 # Ray transform (= forward projection).
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cpu')
 
 
-# Read the data
-bad_data = ray_trafo.range.element(np.load('affine_tomo_bad_data.npy'))
+# Generate data with predictable randomness to make them reproducible
+data = ray_trafo(phantom)
+with odl.util.NumpyRandomSeed(123):
+    good_data = (data +
+                 0.01 * np.max(data) * odl.phantom.white_noise(data.space))
+    bad_data = (data +
+                0.1 * np.max(data) * odl.phantom.white_noise(data.space))
 
 
 # --- Set up the inverse problem --- #

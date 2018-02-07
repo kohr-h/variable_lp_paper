@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import imageio
 import odl
+from odl.contrib import fom
+import variable_lp
 
 
 # --- Reconstruction space and phantom --- #
@@ -13,13 +15,13 @@ image = np.rot90(imageio.imread('affine_phantom.png'), k=-1)
 
 reco_space = odl.uniform_discr([-10, -10], [10, 10], image.shape,
                                dtype='float32')
-phantom = reco_space.element(image)
+phantom = reco_space.element(image) / np.max(image)
 
 
 # --- Set up the forward operator --- #
 
 # Make a fan beam geometry with flat detector
-# Angles: uniformly spaced, n = 360, min = 0, max = pi
+# Angles: uniformly spaced, n = 360, min = 0, max = 3/4 * pi (limited angle)
 angle_partition = odl.uniform_partition(0, 3 * np.pi / 4, 270)
 # Detector: uniformly sampled, n = 300, min = -15, max = 15
 detector_partition = odl.uniform_partition(-15, 15, 300)
@@ -27,16 +29,15 @@ detector_partition = odl.uniform_partition(-15, 15, 300)
 geometry = odl.tomo.Parallel2dGeometry(angle_partition, detector_partition)
 
 # Ray transform (= forward projection).
-ray_trafo = odl.tomo.RayTransform(reco_space, geometry)
+ray_trafo = odl.tomo.RayTransform(reco_space, geometry, impl='astra_cpu')
 
-# Read data
-# data = ray_trafo(phantom)
-# good_data = data + 0.01 * np.max(data) * odl.phantom.white_noise(data.space)
-# bad_data = data + 0.1 * np.max(data) * odl.phantom.white_noise(data.space)
-good_data = ray_trafo.range.element(
-    np.load('affine_tomo_par2d_limang_good_data.npy'))
-bad_data = ray_trafo.range.element(
-    np.load('affine_tomo_par2d_limang_bad_data.npy'))
+# Generate data with predictable randomness to make them reproducible
+data = ray_trafo(phantom)
+with odl.util.NumpyRandomSeed(123):
+    good_data = (data +
+                 0.01 * np.max(data) * odl.phantom.white_noise(data.space))
+    bad_data = (data +
+                0.1 * np.max(data) * odl.phantom.white_noise(data.space))
 
 
 # --- Compute the exponent --- #
@@ -112,10 +113,10 @@ lambda_reco = fbp_lambda(good_data)
 
 # Remove jumps at the boundary, they're artificial
 avg = np.mean(lambda_reco)
-lambda_reco[:5, :] = avg
-lambda_reco[-5:, :] = avg
-lambda_reco[:, :5] = avg
-lambda_reco[:, -5:] = avg
+lambda_reco[:3, :] = avg
+lambda_reco[-3:, :] = avg
+lambda_reco[:, :3] = avg
+lambda_reco[:, -3:] = avg
 
 
 # We use the following procedure to generate the exponent from the reco g:
@@ -124,8 +125,7 @@ lambda_reco[:, -5:] = avg
 # - Multiply by 2 / max(L(g)), then clip at value 1.
 #   This is to make the regions with high values broader.
 # - Use 2 minus the result as exponent
-def exp_kernel(x, **kwargs):
-    s = kwargs.pop('s', 0.5)
+def exp_kernel(x, s=0.5):
     scaled = [xi / (np.sqrt(2) * s) for xi in x]
     return np.exp(-sum(xi ** 2 for xi in scaled))
 
@@ -148,23 +148,35 @@ exponent.show()
 
 
 # Assemble operators and functionals for the solver
-gradient = odl.Gradient(reco_space, pad_mode='order1')
+gradient = (2e2 / reco_space.cell_volume *
+            odl.Gradient(reco_space, pad_mode='order1'))
 lin_ops = [ray_trafo, gradient]
 data_matching = odl.solvers.L2NormSquared(ray_trafo.range).translated(bad_data)
-varlp_func = odl.solvers.VariableLpModular(gradient.range, exponent,
-                                           impl='cython')
+varlp_func = variable_lp.VariableLpModular(gradient.range, exponent,
+                                           impl='numba_parallel')
 # Left-multiplication version
-reg_param = 1e2
-regularizer = reg_param * varlp_func
+reg_param = 1e-4
+# regularizer = reg_param * varlp_func
 # Right-multiplication version
 # reg_param = 8e-2
-# regularizer = varlp_func * reg_param
+regularizer = varlp_func * reg_param
 
 g = [data_matching, regularizer]
-f = odl.solvers.IndicatorBox(reco_space, 0, 255)
+f = odl.solvers.IndicatorBox(reco_space, 0, 1)
+
+# Use standard strategy to set solver parameters (see doc of
+# `douglas_rachford_pd` for more on the convergence criterion)
+ray_trafo_norm = odl.power_method_opnorm(ray_trafo, maxiter=10)
+grad_norm = odl.power_method_opnorm(gradient,
+                                    xstart=ray_trafo.adjoint(good_data),
+                                    maxiter=20)
+opnorms = [ray_trafo_norm, grad_norm]
+num_ops = len(lin_ops)
+tau = 0.1
+sigmas = [3 / (tau * num_ops * opnorm ** 2) for opnorm in opnorms]
 
 # Uncomment the combined callback to also display iterates
-callback = (odl.solvers.CallbackShow('iterate', step=20, clim=[0, 255]) &
+callback = (odl.solvers.CallbackShow('iterate', step=10, clim=[0, 1]) &
             odl.solvers.CallbackPrintIteration())
 # callback = odl.solvers.CallbackPrintIteration()
 
@@ -173,16 +185,26 @@ callback = (odl.solvers.CallbackShow('iterate', step=20, clim=[0, 255]) &
 # See douglas_rachford_pd doc for more information.
 x = reco_space.zero()
 odl.solvers.douglas_rachford_pd(x, f, g, lin_ops,
-                                tau=0.1, sigma=[0.1, 0.02], lam=1.5,
-                                niter=800, callback=callback)
+                                tau=tau, sigma=sigmas, lam=1.5,
+                                niter=200, callback=callback)
 
+
+# --- Compute FOMs --- #
+
+with open('affine_bimodal_tomo_par2d_varlp_tv_lambda_fom.txt', 'w+') as f:
+    psnr = fom.psnr(x, phantom)
+    print('PSNR:', psnr, file=f)
+    ssim = fom.ssim(x, phantom)
+    print('SSIM:', ssim, file=f)
+    haarpsi = fom.haarpsi(x, phantom)
+    print('HaarPSI:', haarpsi, file=f)
 
 # --- Display images --- #
 
 
-# phantom.show(title='Phantom', clim=[-5, 5])
+# phantom.show(title='Phantom', clim=[0, 1])
 # data.show(title='Data')
-x.show(title='TV-p Reconstruction', clim=[0, 255])
+x.show(title='TV-p Reconstruction', clim=[0, 1])
 exponent.show(title='Exponent function', clim=[1, 2])
 # Display horizontal profile
 # fig = phantom.show(coords=[None, -4.25])
@@ -194,7 +216,7 @@ reco_slice = x[:, 35]
 x_vals = reco_space.grid.coord_vectors[0]
 plt.figure()
 axes = plt.gca()
-axes.set_ylim([80, 270])
+axes.set_ylim([0.3, 1.1])
 plt.plot(x_vals, phantom_slice, label='Phantom')
 plt.plot(x_vals, reco_slice, label='TV-p reconstruction')
 plt.legend()
@@ -204,7 +226,7 @@ plt.savefig('affine_bimodal_tomo_varlp_lambda_tv_bootstrap_profile.png')
 
 # Display full images
 plt.figure()
-plt.imshow(np.rot90(x), cmap='bone', clim=[0, 255])
+plt.imshow(np.rot90(x), cmap='bone', clim=[0, 1])
 axes = plt.gca()
 axes.axis('off')
 plt.tight_layout()
@@ -218,7 +240,7 @@ plt.tight_layout()
 plt.savefig('affine_bimodal_tomo_varlp_lambda_tv_limang_exp.png')
 
 plt.figure()
-plt.imshow(np.rot90(phantom), cmap='bone', clim=[0, 255])
+plt.imshow(np.rot90(phantom), cmap='bone', clim=[0, 1])
 axes = plt.gca()
 axes.axis('off')
 plt.tight_layout()
