@@ -86,10 +86,9 @@ def show_first(x):
     callback_fig = x[0].show('iterate', clim=[0, 1], fig=callback_fig)
 
 
-# Uncomment the combined callback to also display iterates
+# Display iterates and show iteration counter
 callback = (odl.solvers.CallbackApply(show_first, step=10) &
             odl.solvers.CallbackPrintIteration())
-# callback = odl.solvers.CallbackPrintIteration()
 
 # Compute sigma parameters for the Douglas-Rachford solver, using a custom
 # choice for tau and the norms of the operators in L
