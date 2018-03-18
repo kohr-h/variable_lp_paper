@@ -1,4 +1,4 @@
-"""Bimodal tomography with TV regularizer (bad data only)."""
+"""Bimodal tomography with TGV regularizer."""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,23 +9,27 @@ from sacred import Experiment
 
 
 # Experiment configuration
-ex = Experiment('Bimodal tomography with TV regularizer')
+ex = Experiment('Bimodal tomography with TGV regularizer')
 
 
 @ex.config
 def config():
     # Geometry: 'cone2d', 'parallel2d', 'parallel2d_lim_ang'
     geometry = 'parallel2d_lim_ang'
-    # Regularization parameter, around 1e-2 is reasonable
-    reg_param = 5e-3
-    # Number of iterations of the optimizer, 150 should be enough
-    num_iter = 150
+    # Regularization parameter for the 1st order term, around 1e-2
+    # is reasonable
+    reg_param_1 = 5e-2
+    # Regularization parameter for the 2nd order term, should be roughly
+    # equal to reg_param_1
+    reg_param_2 = 5e-2
+    # Number of iterations of the optimizer, 300 should be enough
+    num_iter = 300
 
 
 @ex.automain
-def run(geometry, reg_param, num_iter):
+def run(geometry, reg_param_1, reg_param_2, num_iter):
 
-    file_prefix = 'affine_bimodal_tomo_{}_tv'.format(geometry)
+    file_prefix = 'affine_bimodal_tomo_{}_tgv'.format(geometry)
 
     # --- Reconstruction space and phantom --- #
 
@@ -72,45 +76,75 @@ def run(geometry, reg_param, num_iter):
 
     # --- Set up the inverse problem for the bad data --- #
 
-    # Gradient for the TV term
+    # Initialize gradient and 2nd order derivative operator
     grad = odl.Gradient(reco_space, pad_mode='order1')
+    eps = odl.DiagonalOperator(grad, reco_space.ndim)
+    domain = odl.ProductSpace(grad.domain, eps.domain)
 
-    # Balance operator norms and rescale data
-    ray_trafo_norm = 1.2 * odl.power_method_opnorm(ray_trafo, maxiter=20)
+    # Assemble operators and functionals for the solver
 
-    # Create operators and functionals for the solver
-    L = [ray_trafo, grad]
+    # The linear operators are
+    # 1. ray transform on the first component for the data matching
+    # 2. gradient of component 1 - component 2 for the auxiliary functional
+    # 3. eps on the second component
+    # 4. projection onto the first component
+
+    L = [
+        ray_trafo * odl.ComponentProjection(domain, 0),
+        odl.ReductionOperator(grad, odl.ScalingOperator(grad.range, -1)),
+        eps * odl.ComponentProjection(domain, 1),
+        odl.ComponentProjection(domain, 0),
+        ]
+
+    # The functionals are
+    # 1. L2 data matching
+    # 2. regularization parameter 1 times L1 norm on the range of the gradient
+    # 3. regularization parameter 2 times L1 norm on the range of eps
+    # 4. box indicator on the reconstruction space
+
     data_matching = odl.solvers.L2NormSquared(ray_trafo.range)
     data_matching = data_matching.translated(bad_data)
-    l1_func = odl.solvers.L1Norm(grad.range)
-    regularizer = reg_param * l1_func
+    regularizer1 = reg_param_1 * odl.solvers.L1Norm(grad.range)
+    regularizer2 = reg_param_2 * odl.solvers.L1Norm(eps.range)
+    box_constr = odl.solvers.IndicatorBox(reco_space, 0, 1)
 
-    g = [data_matching, regularizer]
-    f = odl.solvers.IndicatorBox(reco_space, 0, 1)
+    g = [data_matching, regularizer1, regularizer2, box_constr]
+
+    # Don't use f
+    f = odl.solvers.ZeroFunctional(domain)
 
     # Show iteration counter
     callback = odl.solvers.CallbackPrintIteration(step=10)
 
-    # Use default tau and sigma parameters for the Douglas-Rachford solver
-    tau, sigma = odl.solvers.douglas_rachford_pd_stepsize(
-        [ray_trafo_norm, grad])
+    # Compute sigma parameters for the Douglas-Rachford solver, using a custom
+    # choice for tau and the norms of the operators in L
+    L_norms = [
+        1.2 * odl.power_method_opnorm(L[0], maxiter=20),
+        1.2 * odl.power_method_opnorm(L[1]),
+        1.2 * odl.power_method_opnorm(L[2]),
+        ]
+
+    tau = 0.1
+    tau, sigma = odl.solvers.douglas_rachford_pd_stepsize(L_norms, tau)
+    sigma = list(sigma)
+    sigma.append(1.0)
 
     # Solve with initial guess x = 0
-    x = reco_space.zero()
+    x = domain.zero()
     odl.solvers.douglas_rachford_pd(x, f, g, L, tau=tau, sigma=sigma, lam=1.5,
                                     niter=num_iter, callback=callback)
 
-    np.save(file_prefix + '_reco', x)
+    np.save(file_prefix + '_reco', x[0])
     ex.add_artifact(file_prefix + '_reco.npy')
 
     # --- Compute FOMs --- #
 
     with open(file_prefix + '_fom.txt', 'w+') as f:
-        psnr = fom.psnr(x, phantom)
+        psnr = fom.psnr(x[0], phantom)
         print('PSNR:', psnr, file=f)
-        ssim = fom.ssim(x, phantom)
+        ssim = fom.ssim(x[0], phantom)
         print('SSIM:', ssim, file=f)
-        haarpsi = fom.haarpsi(x, phantom)
+        haarpsi = fom.haarpsi(x[0], phantom)
         print('HaarPSI:', haarpsi, file=f)
 
     ex.add_artifact(file_prefix + '_fom.txt')
@@ -119,13 +153,13 @@ def run(geometry, reg_param, num_iter):
 
     # Create horizontal profile through the "tip"
     phantom_slice = phantom[:, 35]
-    reco_slice = x[:, 35]
+    reco_slice = x[0][:, 35]
     x_vals = reco_space.grid.coord_vectors[0]
     plt.figure()
     axes = plt.gca()
     axes.set_ylim([0.3, 1.1])
     plt.plot(x_vals, phantom_slice, label='Phantom')
-    plt.plot(x_vals, reco_slice, label='TV reconstruction')
+    plt.plot(x_vals, reco_slice, label='TGV reconstruction')
     plt.legend()
     plt.tight_layout()
     plt.savefig(file_prefix + '_profile.png')
@@ -133,7 +167,7 @@ def run(geometry, reg_param, num_iter):
 
     # Display full image
     plt.figure()
-    plt.imshow(np.rot90(x), cmap='bone', clim=[0, 1])
+    plt.imshow(np.rot90(x[0]), cmap='bone', clim=[0, 1])
     axes = plt.gca()
     axes.axis('off')
     plt.tight_layout()
