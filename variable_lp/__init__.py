@@ -1,6 +1,6 @@
-# Copyright 2014-2017 The ODL contributors
+# Copyright 2017, 2018 Holger Kohr
 #
-# This file is part of ODL.
+# This file is part of variable_lp_paper.
 #
 # This Source Code Form is subject to the terms of the Mozilla Public License,
 # v. 2.0. If a copy of the MPL was not distributed with this file, You can
