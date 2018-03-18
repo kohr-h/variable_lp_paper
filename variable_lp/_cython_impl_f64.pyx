@@ -37,6 +37,9 @@ cdef inline float_t fmin(float_t x, float_t y):
 cdef inline float_t fabs(float_t x):
     return x if x >= 0 else -x
 
+cdef extern from "math.h":
+    float_t INFINITY
+
 
 # --- Newton iteration with auxiliary functions --- #
 
