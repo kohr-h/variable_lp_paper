@@ -1,12 +1,12 @@
 """Bimodal tomography with variable Lp TV regularizer, binary exponent."""
 
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
+
 import odl
-import imageio
 import variable_lp
 from odl.contrib import fom
-
 
 # --- Reconstruction space and phantom --- #
 

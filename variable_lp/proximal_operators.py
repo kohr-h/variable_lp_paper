@@ -15,14 +15,13 @@ For more details see :ref:`proximal_operators` and references therein. For
 more details on proximal operators including how to evaluate the proximal
 operator of a variety of functionals see [PB2014]_. """
 
-from __future__ import print_function, division, absolute_import
+from __future__ import absolute_import, division, print_function
 
 from odl.discr import DiscreteLp
 from odl.operator import Operator, PointwiseNorm
 from odl.space import ProductSpace
 from odl.util import writable_array
-from variable_lp import _cython_impl, _numba_impl, _numpy_impl, _gpuarray_impl
-
+from variable_lp import _cython_impl, _gpuarray_impl, _numba_impl, _numpy_impl
 
 __all__ = ('proximal_variable_lp_modular',
            'proximal_cconj_variable_lp_modular')

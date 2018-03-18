@@ -1,9 +1,9 @@
 """Reference TGV denoising of the affine example."""
 
-import numpy as np
 import imageio
-import odl
+import numpy as np
 
+import odl
 
 # --- Reconstruction space, phantom and data --- #
 

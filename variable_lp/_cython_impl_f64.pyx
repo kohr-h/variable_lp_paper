@@ -169,7 +169,6 @@ def varlp_cc_prox_factor_f64_c(
 # --- Integrand for the convex conjugate --- #
 
 
-from numpy.math cimport INFINITY
 
 
 @cython.boundscheck(False)

@@ -1,12 +1,12 @@
 """Bimodal tomography with TGV regularizer."""
 
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-import imageio
-import odl
-from odl.contrib import fom
 from sacred import Experiment
 
+import odl
+from odl.contrib import fom
 
 # Experiment configuration
 ex = Experiment('Bimodal tomography with TGV regularizer')

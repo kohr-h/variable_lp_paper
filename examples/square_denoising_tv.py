@@ -1,9 +1,9 @@
 """Reference TV denoising of the square example."""
 
-import numpy as np
-import odl
 import matplotlib.pyplot as plt
+import numpy as np
 
+import odl
 
 # --- Reconstruction space, phantom and data --- #
 

@@ -1,10 +1,10 @@
 """Denoising with variable Lp TV regularizer."""
 
-import numpy as np
-import odl
 import imageio
-import variable_lp
+import numpy as np
 
+import odl
+import variable_lp
 
 # --- Reconstruction space, phantom and data --- #
 

@@ -5,9 +5,11 @@ Code for the paper [Total variation regularization with variable Lebesgue prior]
 
 ## Installation
 
-As of now, a mix of several development branches of [ODL](https://www.github.com/odlgroup/odl) is necessary to run all examples and all implementations. Make sure that you DO NOT install ODL via `pip` or `conda`, those versions will not work.
+As of now, a development branch of [ODL](https://www.github.com/odlgroup/odl) is necessary to run all examples and all implementations. Make sure that you DO NOT install ODL via `pip` or `conda`, those versions will not work.
 
-TODO: provide a simple source (a branch or zipped archive)
+The required branch has the name `variable_lp` and is available [here](https://github.com/kohr-h/odl/tree/variable_lp). You can install it in the same way from source as described below for this repository. The simplest way is from a zipped archive:
+
+    pip install https://github.com/kohr-h/odl/archive/variable_lp.zip
 
 ### From git source
 This library can be installed by cloning the repository and installing with `pip`:
@@ -26,7 +28,7 @@ A quicker option that works without Git is to install from a zipped archive prov
 
 ## Optional dependencies
 
-The following packages are not hard dependencies, but they are needed for certain functionality in the library or in the examples:
+The following packages are no hard dependencies, but they are needed for certain functionality in the library or in the examples:
 
     conda install cython numba pygpu scipy pillow imageio matplotlib
 

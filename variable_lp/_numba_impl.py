@@ -13,7 +13,6 @@ from __future__ import division
 import numba
 import numpy as np
 
-
 __all__ = ('varlp_prox_factor_numba', 'varlp_cc_prox_factor_numba',
            'varlp_cc_integrand_numba', 'varlp_moreau_integrand_numba')
 

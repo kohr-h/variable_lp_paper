@@ -2,11 +2,11 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
 import scipy.misc
+from PIL import Image
+
 import odl
 import variable_lp
-
 
 # --- Reconstruction space, phantom and data --- #
 

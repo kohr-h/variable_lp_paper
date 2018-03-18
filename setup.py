@@ -13,7 +13,14 @@ Installation command::
     pip install [--user] [-e] .
 """
 
-from __future__ import print_function, absolute_import
+from __future__ import absolute_import, print_function
+
+import os
+import sys
+
+import numpy as np
+from setuptools import Extension, find_packages, setup
+from setuptools.command.test import test as TestCommand
 
 try:
     from Cython.Build import cythonize
@@ -23,12 +30,6 @@ except ImportError:
         return None
 
     CYTHON_AVAILABLE = False
-
-import numpy as np
-import os
-from setuptools import find_packages, setup, Extension
-from setuptools.command.test import test as TestCommand
-import sys
 
 
 root_path = os.path.dirname(__file__)
@@ -100,9 +101,11 @@ with open(os.path.join(root_path, 'variable_lp', '__init__.py')) as f:
 
 cython_modules = {
     os.path.join('variable_lp', '_cython_impl_f32.pyx'): {
-        'include_dirs': [np.get_include()]},
+        'include_dirs': [np.get_include()]
+    },
     os.path.join('variable_lp', '_cython_impl_f64.pyx'): {
-        'include_dirs': [np.get_include()]}
+        'include_dirs': [np.get_include()]
+    }
 }
 
 

@@ -10,6 +10,7 @@
 
 
 import numpy as np
+
 try:
     from . import _cython_impl_f32
     from . import _cython_impl_f64

@@ -1,11 +1,11 @@
 import numpy as np
-import pygpu
 
 import odl
-from variable_lp._numpy_impl import varlp_cc_prox_factor_npy
-from variable_lp._numba_impl import varlp_cc_prox_factor_numba
+import pygpu
 from variable_lp._cython_impl import varlp_cc_prox_factor_cython
 from variable_lp._gpuarray_impl import varlp_cc_prox_factor_gpuary
+from variable_lp._numba_impl import varlp_cc_prox_factor_numba
+from variable_lp._numpy_impl import varlp_cc_prox_factor_npy
 
 size = int(1e6)
 sigma = 1.0

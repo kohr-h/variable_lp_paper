@@ -2,10 +2,10 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
-from PIL import Image
 import scipy.misc
-import odl
+from PIL import Image
 
+import odl
 
 # --- Reconstruction space, phantom and data --- #
 

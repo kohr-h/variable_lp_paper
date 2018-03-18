@@ -9,9 +9,10 @@ larger (convex conjugate) or smaller (proximal) value, respectively.
 """
 
 import numpy as np
+
 import odl
-from odl.util import noise_element
 import variable_lp
+from odl.util import noise_element
 
 space = odl.uniform_discr(0, 1, 3)
 exponent = space.element([1, 1.5, 2])

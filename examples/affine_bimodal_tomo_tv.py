@@ -1,11 +1,11 @@
 """Bimodal tomography with TV regularizer (bad data only)."""
 
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-import imageio
+
 import odl
 from odl.contrib import fom
-
 
 # --- Experiment configuration --- #
 

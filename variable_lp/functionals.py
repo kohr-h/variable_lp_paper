@@ -8,21 +8,18 @@
 
 """Functionals related to variable Lebesgue spaces."""
 
-# Imports for common Python 2/3 codebase
-from __future__ import print_function, division, absolute_import
-from future import standard_library
-standard_library.install_aliases()
+from __future__ import absolute_import, division, print_function
 
 import numpy as np
 
 from odl.discr import DiscreteLp
 from odl.operator import Operator, PointwiseNorm
-from odl.space import ProductSpace
 from odl.solvers import Functional
-from variable_lp import _cython_impl, _numba_impl, _numpy_impl, _gpuarray_impl
-from variable_lp.proximal_operators import (
-    proximal_variable_lp_modular, proximal_cconj_variable_lp_modular)
+from odl.space import ProductSpace
 from odl.util import writable_array
+from variable_lp import _cython_impl, _gpuarray_impl, _numba_impl, _numpy_impl
+from variable_lp.proximal_operators import (
+    proximal_cconj_variable_lp_modular, proximal_variable_lp_modular)
 
 
 __all__ = ('VariableLpModular', 'VariableLpModularConvexConj')

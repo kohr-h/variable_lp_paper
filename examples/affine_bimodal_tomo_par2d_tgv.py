@@ -1,11 +1,11 @@
 """Bimodal tomography with TGV regularizer."""
 
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-import imageio
+
 import odl
 from odl.contrib import fom
-
 
 # --- Reconstruction space and phantom --- #
 

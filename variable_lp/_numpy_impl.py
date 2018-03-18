@@ -13,7 +13,6 @@ from __future__ import division
 
 import numpy as np
 
-
 __all__ = ('varlp_prox_factor_npy', 'varlp_cc_prox_factor_npy',
            'varlp_cc_integrand_npy', 'varlp_moreau_integrand_npy')
 
