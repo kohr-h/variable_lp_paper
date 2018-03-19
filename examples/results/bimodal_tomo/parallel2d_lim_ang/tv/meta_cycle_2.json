@@ -1,0 +1,12 @@
+{
+    "cycle": 2,
+    "sampling": "log",
+    "min_val": 0.0005,
+    "max_val": 0.03,
+    "num_samples": 20,
+    "foms": [
+        "psnr",
+        "ssim",
+        "hpsi"
+    ]
+}

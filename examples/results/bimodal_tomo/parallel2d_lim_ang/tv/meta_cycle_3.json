@@ -1,0 +1,12 @@
+{
+    "cycle": 3,
+    "sampling": "grid",
+    "min_val": 0.0015,
+    "max_val": 0.01,
+    "num_samples": 18,
+    "foms": [
+        "psnr",
+        "ssim",
+        "hpsi"
+    ]
+}
