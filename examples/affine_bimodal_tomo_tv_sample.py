@@ -121,7 +121,7 @@ if run_from_ipython():
 else:
     here = os.path.abspath(__file__)
 
-results_root = os.path.join(here, 'results', geometry, 'tv')
+results_root = os.path.join(here, 'results', 'bimodal_tomo', geometry, 'tv')
 os.makedirs(results_root, exist_ok=True)
 
 # %% Find optimal reg_param: cycle 1 - coarse sampling
