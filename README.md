@@ -30,7 +30,7 @@ A quicker option that works without Git is to install from a zipped archive prov
 
 The following packages are no hard dependencies, but they are needed for certain functionality in the library or in the examples:
 
-    conda install cython numba pygpu scipy pillow imageio matplotlib
+    conda install cython numba pygpu scipy pillow imageio matplotlib simplejson
 
     # Re-install `variable_lp_paper` to build the Cython extension
 
@@ -42,6 +42,7 @@ The following packages are no hard dependencies, but they are needed for certain
 - The packages `scipy`, `pillow` and `imageio` are needed in several examples to load, create or manipulate images.
 - To run the tomography examples, you need a backend for ray transforms, either `scikit-image` (very slow) or `astra-toolbox` (fast, see [here](https://odlgroup.github.io/odl/getting_started/installing_extensions.html#astra-for-x-ray-tomography) for instructions).
 - Graphical output is provided by `matplotlib`.
+- Results metadata is stored in JSON format using the `simplejson` package.
 
 
 ## Running the examples
