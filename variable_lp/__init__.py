@@ -18,3 +18,5 @@ __all__ += functionals.__all__
 
 from .proximal_operators import *
 __all__ += proximal_operators.__all__
+
+from . import util
