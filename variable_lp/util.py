@@ -128,7 +128,7 @@ def plot_foms_1(xs, results, foms, x_label='x', log_x=True):
     if log_x:
         ax.set_xscale('log')
         ax.set_xlim(10 ** int(np.floor(np.log10(min_x))),
-                    10 ** int(np.floor(np.log10(max_x))))
+                    10 ** int(np.ceil(np.log10(max_x))))
     else:
         ax.set_xlim(min_x, max_x)
 
@@ -138,3 +138,12 @@ def plot_foms_1(xs, results, foms, x_label='x', log_x=True):
                  ''.format(', '.join(fom.upper() for fom in foms)))
 
     return fig
+
+
+def read_results(path):
+    """Read results from files on a given path.
+
+    The results are expected to be given in ``data_cycle_*`` files with
+    endings ``.json`` for metadata and ``.npy`` for numeric data.
+    """
+    pass
