@@ -1,10 +1,11 @@
 {
     "cycle": 2,
     "sampling": "log",
-    "min_val": 0.0005,
-    "max_val": 0.03,
+    "min_val": 0.0001,
+    "max_val": 0.1,
     "num_samples": 20,
-    "foms": [
+    "columns": [
+        "x",
         "psnr",
         "ssim",
         "hpsi"

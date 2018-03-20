@@ -119,10 +119,7 @@ geometry = 'parallel2d_lim_ang'
 if run_from_ipython():
     here = ''  # current working directory
 else:
-    try:
-        here = os.path.abspath(__file__)
-    except NameError:
-        here = ''
+    here = os.path.abspath(__file__)
 
 results_root = os.path.join(here, 'results', 'bimodal_tomo', geometry, 'tv')
 os.makedirs(results_root, exist_ok=True)
@@ -149,38 +146,28 @@ meta_cycle_1 = {
     'min_val': min_val,
     'max_val': max_val,
     'num_samples': num_samples,
-    'columns': ['x'] + foms,
+    'foms': tuple(foms),
 }
 
 # Rearrange data for saving
 fom_arrays_cycle_1 = [np.array([res[fom] for res in fom_values])
                       for fom in foms]
-data_cycle_1 = np.empty((num_samples, 1 + len(foms)), dtype=float)
-data_cycle_1[:, 0] = xs_cycle_1
-for i, arr in enumerate(fom_arrays_cycle_1):
-    data_cycle_1[:, i + 1] = arr
+data_cycle_1 = {fom: arr for fom, arr in zip(foms, fom_arrays_cycle_1)}
 
 # Save data
 with open(os.path.join(results_root, 'meta_cycle_1.json'), 'w') as fp:
     json.dump(meta_cycle_1, fp, indent='    ')
 
-np.save(os.path.join(results_root, 'data_cycle_1'), data_cycle_1)
+np.save(os.path.join(results_root, 'xs_cycle_1'), xs_cycle_1)
+for fom_name, arr in data_cycle_1.items():
+    np.save(os.path.join(results_root, fom_name + '_cycle_1'), arr)
 
 # %% Find optimal reg_param: cycle 2 - fine sampling
 
 # Sample the regularization parameter (log-uniformly)
 num_samples = 20
-rand_state_cycle_2 = np.random.get_state()  # for multiple runs
-
-if geometry == 'parallel2d':
-    min_val = 1e-4
-    max_val = 1e-1
-elif geometry == 'parallel2d_lim_ang':
-    min_val = 5e-4
-    max_val = 3e-2
-else:
-    pass
-
+min_val = 5e-4
+max_val = 3e-2
 reg_param_sampler = log_sampler(min_val, max_val)
 
 arg_sampler = zip(const_sampler(geometry), reg_param_sampler)
@@ -197,39 +184,28 @@ meta_cycle_2 = {
     'min_val': min_val,
     'max_val': max_val,
     'num_samples': num_samples,
-    'columns': ['x'] + foms,
+    'foms': tuple(foms),
 }
 
 # Rearrange data for saving
 fom_arrays_cycle_2 = [np.array([res[fom] for res in fom_values])
                       for fom in foms]
-data_cycle_2 = np.empty((num_samples, 1 + len(foms)), dtype=float)
-data_cycle_2[:, 0] = xs_cycle_2
-for i, arr in enumerate(fom_arrays_cycle_2):
-    data_cycle_2[:, i + 1] = arr
+data_cycle_2 = {fom: arr for fom, arr in zip(foms, fom_arrays_cycle_2)}
 
 # Save data
 with open(os.path.join(results_root, 'meta_cycle_2.json'), 'w') as fp:
     json.dump(meta_cycle_2, fp, indent='    ')
 
-np.save(os.path.join(results_root, 'data_cycle_2'), data_cycle_2)
+np.save(os.path.join(results_root, 'xs_cycle_2'), xs_cycle_2)
+for fom_name, arr in data_cycle_2.items():
+    np.save(os.path.join(results_root, fom_name + '_cycle_2'), arr)
 
 # %% Find optimal reg_param: cycle 3 - final grid search
 
 # Sample the regularization parameter (uniformly)
-rand_state_cycle_3 = np.random.get_state()  # for multiple runs
-
-if geometry == 'parallel2d':
-    num_samples = 15
-    min_val = 1e-3
-    max_val = 1.5e-2
-elif geometry == 'parallel2d_lim_ang':
-    num_samples = 18
-    min_val = 1.5e-3
-    max_val = 1e-2
-else:
-    pass
-
+num_samples = 18
+min_val = 1.5e-3
+max_val = 1e-2
 reg_param_sampler = iter(np.linspace(min_val, max_val, num_samples))
 
 arg_sampler = zip(const_sampler(geometry), reg_param_sampler)
@@ -247,29 +223,18 @@ meta_cycle_3 = {
     'min_val': min_val,
     'max_val': max_val,
     'num_samples': num_samples,
-    'columns': ['x'] + foms,
+    'foms': tuple(foms),
 }
 
 # Rearrange data for saving
 fom_arrays_cycle_3 = [np.array([res[fom] for res in fom_values])
                       for fom in foms]
-data_cycle_3 = np.empty((num_samples, 1 + len(foms)), dtype=float)
-data_cycle_3[:, 0] = xs_cycle_3
-for i, arr in enumerate(fom_arrays_cycle_3):
-    data_cycle_3[:, i + 1] = arr
+data_cycle_3 = {fom: arr for fom, arr in zip(foms, fom_arrays_cycle_3)}
 
 # Save data
 with open(os.path.join(results_root, 'meta_cycle_3.json'), 'w') as fp:
     json.dump(meta_cycle_3, fp, indent='    ')
 
-np.save(os.path.join(results_root, 'data_cycle_3'), data_cycle_3)
-
-# %% For the records
-
-if geometry == 'parallel2d':
-    pass
-elif geometry == 'parallel2d_lim_ang':
-    optimal_param = 3e-3
-else:
-    pass
-
+np.save(os.path.join(results_root, 'xs_cycle_3'), xs_cycle_3)
+for fom_name, arr in data_cycle_3.items():
+    np.save(os.path.join(results_root, fom_name + '_cycle_3'), arr)

@@ -1,10 +1,11 @@
 {
     "cycle": 3,
     "sampling": "grid",
-    "min_val": 0.0015,
-    "max_val": 0.01,
-    "num_samples": 18,
-    "foms": [
+    "min_val": 0.0005,
+    "max_val": 0.0145,
+    "num_samples": 15,
+    "columns": [
+        "x",
         "psnr",
         "ssim",
         "hpsi"
