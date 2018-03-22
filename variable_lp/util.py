@@ -10,7 +10,9 @@
 
 from __future__ import absolute_import, division, print_function
 
+import os
 import numpy as np
+import simplejson as json
 
 __all__ = ('log_sampler', 'const_sampler', 'run_many_examples',
            'plot_foms_1')
@@ -86,21 +88,29 @@ def run_many_examples(example, arg_sampler, num_samples):
     return tuple(results)
 
 
-def plot_foms_1(xs, results, foms, x_label='x', log_x=True):
+def plot_foms_1(xs, foms, meta=None, log_x=None):
     """Make scatter plots for all FOMs, potentially with log x scale.
 
     Parameters
     ----------
     xs : array-like
         x values in the plots, shared among all plots.
-    results : dict
-        Dictionary containing the results to plot. Each value should be
+    foms : array-like
+        Array containing the results to plot. Each column should be
         an array of the same length as ``xs``.
-    foms : sequence of str
-        Names of the FOMs to be plotted. They must be the keys of the
-        ``results`` dictionary.
-    x_label : str, optional
-        Label for the x axis of the plot.
+    meta : dict, optional
+        Metadata for extra information on how to show the data. Entries
+        used for plotting (all optional) are
+
+        - ``'cycle'``: ``str``; Used in the title; Default: not used
+        - ``'columns'``: sequence of str; Used for axis labeling;
+          Default: ``'x', 'y_1', 'y_2', ...``
+        - ``'min_val', 'max_val'``: float; Used for x axis limits;
+          Default: data limits.
+        - ``'sampling'``: str; If ``'log'``, a log scale is used for the
+          x axis (if not overridden by the ``log_x`` parameter);
+          Default: linear scale.
+
     log_x : bool, optional
         If ``True``, use a log scale for the x axis.
 
@@ -111,31 +121,215 @@ def plot_foms_1(xs, results, foms, x_label='x', log_x=True):
     """
     import matplotlib.pyplot as plt
 
-    fom_vals = [[res[fom] for res in results] for fom in foms]
-    fig, axs = plt.subplots(nrows=len(foms), sharex=True)
-    for ax, ys, fom_name in zip(axs[:-1], fom_vals[:-1], foms[:-1]):
-        ax.scatter(xs, ys)
-        ax.set_ylabel(fom_name.upper())
+    xs = np.array(xs, copy=False, ndmin=1)
+    foms = np.array(foms, copy=False, ndmin=2)
+    assert xs.ndim == 1, 'xs must be 1-dimensional'
+    assert foms.ndim == 2, 'forms must be 2-dimensional'
+    assert len(xs) == len(foms), 'len(xs) must match len(foms)'
+
+    if meta is None:
+        cycle = columns = min_val = max_val = sampling = None
+    else:
+        cycle = meta.get('cycle', None)
+        columns = meta.get('columns', None)
+        min_val = meta.get('min_val', None)
+        max_val = meta.get('max_val', None)
+        sampling = meta.get('sampling', None)
+
+    fig, axs = plt.subplots(nrows=foms.shape[1], sharex=True)
+    if columns is not None:
+        assert len(columns) == 1 + foms.shape[1], 'wrong number of columns'
+    for i, ax in enumerate(axs[:-1]):
+        ax.scatter(xs, foms[:, i])
+        if columns is None:
+            ax.set_ylabel('y_{}'.format(i + 1))
+        else:
+            ax.set_ylabel(columns[i + 1].upper())
 
     ax = axs[-1]
-    ys = fom_vals[-1]
-    fom_name = foms[-1]
-    ax.scatter(xs, ys)
-    ax.set_ylabel(fom_name.upper())
+    ax.scatter(xs, foms[:, -1])
+    if columns is None:
+        ax.set_xlabel('x')
+        ax.set_ylabel('y_{}'.format(foms.shape[1]))
+    else:
+        ax.set_xlabel(columns[0])
+        ax.set_ylabel(columns[-1].upper())
 
-    min_x = np.min(xs)
-    max_x = np.max(xs)
-    if log_x:
+    if min_val is None:
+        min_x = np.min(xs)
+    else:
+        min_x = float(min_val)
+
+    if max_val is None:
+        max_x = np.max(xs)
+    else:
+        max_x = float(max_val)
+
+    if ((log_x is None and sampling is not None and sampling == 'log') or
+            log_x is not None and log_x):
         ax.set_xscale('log')
         ax.set_xlim(10 ** int(np.floor(np.log10(min_x))),
                     10 ** int(np.ceil(np.log10(max_x))))
     else:
         ax.set_xlim(min_x, max_x)
 
-    ax.set_xlabel(x_label)
-    fig.canvas.set_window_title('FOMs')
-    fig.suptitle('Figures of Merit: {}'
-                 ''.format(', '.join(fom.upper() for fom in foms)))
+    if cycle is None:
+        fig.canvas.set_window_title('FOMs')
+        if columns is None:
+            fig.suptitle('Figures of Merit')
+        else:
+            fig.suptitle(
+                'Figures of Merit: {}'
+                ''.format(', '.join(fom.upper() for fom in columns[1:])))
+    else:
+        fig.canvas.set_window_title('FOMs cycle {}'.format(cycle))
+        if columns is None:
+            fig.suptitle(
+                'Figures of Merit (cycle {})'
+                ''.format(', '.join(fom.upper() for fom in foms)))
+        else:
+            fig.suptitle(
+                'Figures of Merit (cycle {}): {}'
+                ''.format(cycle,
+                          ', '.join(fom.upper() for fom in columns[1:])))
+
+    return fig
+
+
+def plot_foms_2(xys, foms, meta=None, log_x=None, log_y=None):
+    """Make scatter plots for all FOMs, potentially with log x scale.
+
+    Parameters
+    ----------
+    xys : array-like
+        x-y value pairs in the plots, shared among all plots.
+    foms : array-like
+        Array containing the results to plot. Each column should be
+        an array of the same length as ``xys``.
+    meta : dict, optional
+        Metadata for extra information on how to show the data. Entries
+        used for plotting (all optional) are
+
+        - ``'cycle'``: ``str``; Used in the title; Default: not used
+        - ``'columns'``: sequence of str; Used for axis labeling;
+          Default: ``'x', 'y', 'z_1', 'z_2', ...``
+        - ``'min_val', 'max_val'``: 2-tuple of float (each); Used for
+          x and y axis limits; Default: data limits.
+        - ``'sampling'``: str; If ``'log'``, a log scale is used for the
+          x and y axes (if not overridden by the ``log_x`` or ``log_y``
+          parameters); Default: linear scale.
+
+    log_x, log_y : bool, optional
+        If ``True``, use a log scale for the x/y axis.
+
+    Returns
+    -------
+    fig: matplotlib.figure.Figure
+        The figure to be shown.
+    """
+    import matplotlib.pyplot as plt
+    from mpl_toolkits.mplot3d import Axes3D
+
+    xys = np.array(xys, copy=False, ndmin=2)
+    foms = np.array(foms, copy=False, ndmin=2)
+    assert xys.ndim == 2, 'xys must be 2-dimensional'
+    assert xys.shape[1] == 2, 'xys must have 2 columns'
+    assert foms.ndim == 2, 'forms must be 2-dimensional'
+    assert len(xys) == len(foms), 'len(xys) must match len(foms)'
+
+    if meta is None:
+        cycle = columns = min_val = max_val = sampling = None
+    else:
+        cycle = meta.get('cycle', None)
+        columns = meta.get('columns', None)
+        min_val = meta.get('min_val', None)
+        max_val = meta.get('max_val', None)
+        sampling = meta.get('sampling', None)
+
+    if min_val is None:
+        min_xy = np.min(xys, axis=0)
+    else:
+        min_xy = np.array(min_val).reshape([2])
+
+    if max_val is None:
+        max_xy = np.max(xys, axis=0)
+    else:
+        max_xy = np.array(max_val).reshape([2])
+
+    min_exp = np.floor(np.log10(min_xy)).astype(int)
+    max_exp = np.ceil(np.log10(max_xy)).astype(int)
+
+    if log_x is None and sampling is not None and sampling == 'log':
+        log_x = True
+    if log_y is None and sampling is not None and sampling == 'log':
+        log_y = True
+
+    if log_x:
+        xs = np.log10(xys[:, 0])
+        xticklabels = ['1e{:+}'.format(e)
+                       for e in range(min_exp[0], max_exp[0])]
+        min_x = np.log10(min_xy[0])
+        max_x = np.log10(max_xy[0])
+    else:
+        xs = xys[:, 0]
+        min_x = min_xy[0]
+        min_x = max_xy[0]
+
+    if log_y:
+        ys = np.log10(xys[:, 1])
+        yticklabels = ['1e{:+}'.format(e)
+                       for e in range(min_exp[1], max_exp[1])]
+        min_y = np.log10(min_xy[1])
+        max_y = np.log10(max_xy[1])
+    else:
+        ys = xys[:, 1]
+        min_y = min_xy[1]
+        max_x = max_xy[1]
+
+    if columns is not None:
+        assert len(columns) == 2 + foms.shape[1], 'wrong number of columns'
+
+    fig = plt.figure()
+    for i in range(foms.shape[1]):
+        # Arrange plots in one column
+        ax = fig.add_subplot(foms.shape[1], 1, i + 1, projection='3d')
+
+        ax.scatter3D(xs, ys, foms[:, i])
+        if columns is None:
+            ax.set_xlabel('x')
+            ax.set_ylabel('y')
+            ax.set_zlabel('z_{}'.format(i + 1))
+        else:
+            ax.set_xlabel(columns[0])
+            ax.set_ylabel(columns[1])
+            ax.set_zlabel(columns[i + 2].upper())
+
+        ax.set_xlim(min_x, max_x)
+        ax.set_ylim(min_y, max_y)
+        if log_x:
+            ax.set_xticklabels(xticklabels)
+        if log_y:
+            ax.set_yticklabels(yticklabels)
+
+    if cycle is None:
+        fig.canvas.set_window_title('FOMs')
+        if columns is None:
+            fig.suptitle('Figures of Merit')
+        else:
+            fig.suptitle(
+                'Figures of Merit: {}'
+                ''.format(', '.join(fom.upper() for fom in columns[2:])))
+    else:
+        fig.canvas.set_window_title('FOMs cycle {}'.format(cycle))
+        if columns is None:
+            fig.suptitle(
+                'Figures of Merit (cycle {})'
+                ''.format(', '.join(fom.upper() for fom in foms)))
+        else:
+            fig.suptitle(
+                'Figures of Merit (cycle {}): {}'
+                ''.format(cycle,
+                          ', '.join(fom.upper() for fom in columns[2:])))
 
     return fig
 
@@ -143,7 +337,20 @@ def plot_foms_1(xs, results, foms, x_label='x', log_x=True):
 def read_results(path):
     """Read results from files on a given path.
 
-    The results are expected to be given in ``data_cycle_*`` files with
-    endings ``.json`` for metadata and ``.npy`` for numeric data.
+    The results are expected to be given in ``meta_cycle_[num].json``
+    files with for metadata and ``data_cycle_[num].npy`` for numeric data.
     """
-    pass
+    path = os.path.normpath(path)
+    file_names = os.listdir(path)
+    meta_file_names = [n for n in file_names
+                       if n.startswith('meta_cycle_') and
+                       n.endswith('.json')]
+    metadata = [json.load(open(os.path.join(path, fname), 'r'))
+                for fname in sorted(meta_file_names)]
+    data_file_names = [n for n in file_names
+                       if n.startswith('data_cycle_') and
+                       n.endswith('.npy')]
+    data = [np.load(os.path.join(path, fname))
+            for fname in sorted(data_file_names)]
+
+    return tuple(zip(metadata, data))
