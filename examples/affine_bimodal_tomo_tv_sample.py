@@ -86,7 +86,7 @@ def run_example(geometry, reg_param):
     f = odl.solvers.IndicatorBox(reco_space, 0, 1)
 
     # Show iteration counter
-    callback = odl.solvers.CallbackPrintIteration()
+    callback = odl.solvers.CallbackPrintIteration(step=10)
 
     # Use default tau and sigma parameters for the Douglas-Rachford solver
     tau, sigma = odl.solvers.douglas_rachford_pd_stepsize(
@@ -113,7 +113,7 @@ def run_example(geometry, reg_param):
 np.random.seed(123)
 foms = ['psnr', 'ssim', 'hpsi']
 # Geometry: 'cone2d', 'parallel2d', 'parallel2d_lim_ang'
-geometry = 'parallel2d_lim_ang'
+geometry = 'cone2d'
 
 # Make overall structure
 if run_from_ipython():
@@ -173,13 +173,14 @@ num_samples = 20
 rand_state_cycle_2 = np.random.get_state()  # for multiple runs
 
 if geometry == 'parallel2d':
-    min_val = 1e-4
+    min_val = 5e-4
     max_val = 1e-1
 elif geometry == 'parallel2d_lim_ang':
-    min_val = 5e-4
-    max_val = 3e-2
+    min_val = 1e-4
+    max_val = 1e-1
 else:
-    pass
+    min_val = 5e-4
+    max_val = 1e-1
 
 reg_param_sampler = log_sampler(min_val, max_val)
 
@@ -220,15 +221,17 @@ np.save(os.path.join(results_root, 'data_cycle_2'), data_cycle_2)
 rand_state_cycle_3 = np.random.get_state()  # for multiple runs
 
 if geometry == 'parallel2d':
-    num_samples = 15
-    min_val = 1e-3
-    max_val = 1.5e-2
+    num_samples = 16
+    min_val = 5e-4
+    max_val = 1.45e-2
 elif geometry == 'parallel2d_lim_ang':
-    num_samples = 18
-    min_val = 1.5e-3
-    max_val = 1e-2
+    num_samples = 16
+    min_val = 5e-4
+    max_val = 1.45e-2
 else:
-    pass
+    num_samples = 31
+    min_val = 2e-3
+    max_val = 3.2e-2
 
 reg_param_sampler = iter(np.linspace(min_val, max_val, num_samples))
 
@@ -267,9 +270,8 @@ np.save(os.path.join(results_root, 'data_cycle_3'), data_cycle_3)
 # %% For the records
 
 if geometry == 'parallel2d':
-    pass
+    optimal_param = 4e-3
 elif geometry == 'parallel2d_lim_ang':
     optimal_param = 3e-3
 else:
-    pass
-
+    optimal_param = 6e-3

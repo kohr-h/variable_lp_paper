@@ -9,7 +9,7 @@ import odl
 from odl.contrib import fom
 from odl.util import run_from_ipython
 from variable_lp.util import (
-    log_sampler, const_sampler, run_many_examples, plot_foms_1)
+    log_sampler, const_sampler, run_many_examples, plot_foms_1, plot_foms_2)
 
 # --- Experiment configuration --- #
 
@@ -19,7 +19,7 @@ num_iter = 150
 
 def run_example(geometry, reg_param):
     """Run the example for given parameters, producing some result files."""
-    reg_param = float(reg_param)
+    reg_param_1, reg_param_2 = reg_param
 
     # --- Reconstruction space and phantom --- #
 
@@ -69,40 +69,69 @@ def run_example(geometry, reg_param):
 
     # --- Set up the inverse problem for the bad data --- #
 
-    # Gradient for the TV term
+    # Initialize gradient and 2nd order derivative operator
     grad = odl.Gradient(reco_space, pad_mode='order1')
+    eps = odl.DiagonalOperator(grad, reco_space.ndim)
+    domain = odl.ProductSpace(grad.domain, eps.domain)
 
-    # Balance operator norms and rescale data
-    ray_trafo_norm = 1.2 * odl.power_method_opnorm(ray_trafo, maxiter=20)
+    # Assemble operators and functionals for the solver
 
-    # Create operators and functionals for the solver
-    L = [ray_trafo, grad]
+    # The linear operators are
+    # 1. ray transform on the first component for the data matching
+    # 2. gradient of component 1 - component 2 for the auxiliary functional
+    # 3. eps on the second component
+    # 4. projection onto the first component
+
+    L = [
+        ray_trafo * odl.ComponentProjection(domain, 0),
+        odl.ReductionOperator(grad, odl.ScalingOperator(grad.range, -1)),
+        eps * odl.ComponentProjection(domain, 1),
+        odl.ComponentProjection(domain, 0),
+    ]
+
+    # The functionals are
+    # 1. L2 data matching
+    # 2. regularization parameter 1 times L1 norm on the range of the gradient
+    # 3. regularization parameter 2 times L1 norm on the range of eps
+    # 4. box indicator on the reconstruction space
     data_matching = odl.solvers.L2NormSquared(ray_trafo.range)
     data_matching = data_matching.translated(bad_data)
-    l1_func = odl.solvers.L1Norm(grad.range)
-    regularizer = reg_param * l1_func
+    regularizer1 = reg_param_1 * odl.solvers.L1Norm(grad.range)
+    regularizer2 = reg_param_2 * odl.solvers.L1Norm(eps.range)
+    box_constr = odl.solvers.IndicatorBox(reco_space, 0, 1)
 
-    g = [data_matching, regularizer]
-    f = odl.solvers.IndicatorBox(reco_space, 0, 1)
+    g = [data_matching, regularizer1, regularizer2, box_constr]
 
-    # Show iteration counter
-    callback = odl.solvers.CallbackPrintIteration()
+    # Don't use f
+    f = odl.solvers.ZeroFunctional(domain)
 
-    # Use default tau and sigma parameters for the Douglas-Rachford solver
-    tau, sigma = odl.solvers.douglas_rachford_pd_stepsize(
-        [ray_trafo_norm, grad])
+    # Display iteration counter
+    callback = odl.solvers.CallbackPrintIteration(step=10)
+
+    # Compute sigma parameters for the Douglas-Rachford solver, using a custom
+    # choice for tau and the norms of the operators in L
+    L_norms = [
+        1.2 * odl.power_method_opnorm(L[0], maxiter=20),
+        1.2 * odl.power_method_opnorm(L[1]),
+        1.2 * odl.power_method_opnorm(L[2]),
+    ]
+
+    tau = 0.1
+    tau, sigma = odl.solvers.douglas_rachford_pd_stepsize(L_norms, tau)
+    sigma = list(sigma)
+    sigma.append(1.0)
 
     # Solve with initial guess x = 0
-    x = reco_space.zero()
+    x = domain.zero()
     odl.solvers.douglas_rachford_pd(x, f, g, L, tau=tau, sigma=sigma, lam=1.5,
-                                    niter=num_iter, callback=callback)
+                                    niter=300, callback=callback)
 
     # --- Compute FOMs --- #
 
     foms = {}
-    foms['psnr'] = fom.psnr(x, phantom)
-    foms['ssim'] = fom.ssim(x, phantom)
-    foms['hpsi'] = fom.haarpsi(x, phantom)
+    foms['psnr'] = fom.psnr(x[0], phantom)
+    foms['ssim'] = fom.ssim(x[0], phantom)
+    foms['hpsi'] = fom.haarpsi(x[0], phantom)
 
     return foms
 
@@ -113,31 +142,33 @@ def run_example(geometry, reg_param):
 np.random.seed(123)
 foms = ['psnr', 'ssim', 'hpsi']
 # Geometry: 'cone2d', 'parallel2d', 'parallel2d_lim_ang'
-geometry = 'parallel2d_lim_ang'
+geometry = 'parallel2d'
 
 # Make overall structure
 if run_from_ipython():
     here = ''  # current working directory
 else:
-    here = os.path.abspath(__file__)
+    try:
+        here = os.path.abspath(__file__)
+    except NameError:
+        here = ''
 
-results_root = os.path.join(here, 'results', 'bimodal_tomo', geometry, 'tv')
+results_root = os.path.join(here, 'results', 'bimodal_tomo', geometry, 'tgv')
 os.makedirs(results_root, exist_ok=True)
 
 # %% Find optimal reg_param: cycle 1 - coarse sampling
 
 # Sample the regularization parameter (log-uniformly)
 num_samples = 50
-min_val = 1e-6
-max_val = 1e4
+min_val = [1e-6, 1e-6]
+max_val = [1e4, 1e4]
 reg_param_sampler = log_sampler(min_val, max_val)
 
 arg_sampler = zip(const_sampler(geometry), reg_param_sampler)
 
 results_cycle_1 = run_many_examples(run_example, arg_sampler, num_samples)
-xs_cycle_1 = [res[0][1] for res in results_cycle_1]
+xys_cycle_1 = np.array([res[0][1] for res in results_cycle_1])
 fom_values = [res[1] for res in results_cycle_1]
-plot_foms_1(xs_cycle_1, fom_values, foms, x_label='Regularization parameter')
 
 # Record meta info
 meta_cycle_1 = {
@@ -146,28 +177,38 @@ meta_cycle_1 = {
     'min_val': min_val,
     'max_val': max_val,
     'num_samples': num_samples,
-    'foms': tuple(foms),
+    'columns': ['reg_param_1', 'reg_param_2'] + foms,
 }
 
-# Rearrange data for saving
+# Rearrange data for plotting and saving
 fom_arrays_cycle_1 = [np.array([res[fom] for res in fom_values])
                       for fom in foms]
-data_cycle_1 = {fom: arr for fom, arr in zip(foms, fom_arrays_cycle_1)}
+fom_array = np.hstack([arr[:, None] for arr in fom_arrays_cycle_1])
+plot_foms_2(xys_cycle_1, fom_array, meta=meta_cycle_1)
 
 # Save data
+data_cycle_1 = np.hstack([xys_cycle_1, fom_array])
 with open(os.path.join(results_root, 'meta_cycle_1.json'), 'w') as fp:
     json.dump(meta_cycle_1, fp, indent='    ')
 
-np.save(os.path.join(results_root, 'xs_cycle_1'), xs_cycle_1)
-for fom_name, arr in data_cycle_1.items():
-    np.save(os.path.join(results_root, fom_name + '_cycle_1'), arr)
+np.save(os.path.join(results_root, 'data_cycle_1'), data_cycle_1)
 
 # %% Find optimal reg_param: cycle 2 - fine sampling
 
 # Sample the regularization parameter (log-uniformly)
 num_samples = 20
-min_val = 5e-4
-max_val = 3e-2
+rand_state_cycle_2 = np.random.get_state()  # for multiple runs
+
+if geometry == 'parallel2d':
+    min_val = 5e-4
+    max_val = 1e-1
+elif geometry == 'parallel2d_lim_ang':
+    min_val = 1e-4
+    max_val = 1e-1
+else:
+    min_val = 5e-4
+    max_val = 1e-1
+
 reg_param_sampler = log_sampler(min_val, max_val)
 
 arg_sampler = zip(const_sampler(geometry), reg_param_sampler)
@@ -184,28 +225,41 @@ meta_cycle_2 = {
     'min_val': min_val,
     'max_val': max_val,
     'num_samples': num_samples,
-    'foms': tuple(foms),
+    'columns': ['x'] + foms,
 }
 
 # Rearrange data for saving
 fom_arrays_cycle_2 = [np.array([res[fom] for res in fom_values])
                       for fom in foms]
-data_cycle_2 = {fom: arr for fom, arr in zip(foms, fom_arrays_cycle_2)}
+data_cycle_2 = np.empty((num_samples, 1 + len(foms)), dtype=float)
+data_cycle_2[:, 0] = xs_cycle_2
+for i, arr in enumerate(fom_arrays_cycle_2):
+    data_cycle_2[:, i + 1] = arr
 
 # Save data
 with open(os.path.join(results_root, 'meta_cycle_2.json'), 'w') as fp:
     json.dump(meta_cycle_2, fp, indent='    ')
 
-np.save(os.path.join(results_root, 'xs_cycle_2'), xs_cycle_2)
-for fom_name, arr in data_cycle_2.items():
-    np.save(os.path.join(results_root, fom_name + '_cycle_2'), arr)
+np.save(os.path.join(results_root, 'data_cycle_2'), data_cycle_2)
 
 # %% Find optimal reg_param: cycle 3 - final grid search
 
 # Sample the regularization parameter (uniformly)
-num_samples = 18
-min_val = 1.5e-3
-max_val = 1e-2
+rand_state_cycle_3 = np.random.get_state()  # for multiple runs
+
+if geometry == 'parallel2d':
+    num_samples = 16
+    min_val = 5e-4
+    max_val = 1.45e-2
+elif geometry == 'parallel2d_lim_ang':
+    num_samples = 16
+    min_val = 5e-4
+    max_val = 1.45e-2
+else:
+    num_samples = 31
+    min_val = 2e-3
+    max_val = 3.2e-2
+
 reg_param_sampler = iter(np.linspace(min_val, max_val, num_samples))
 
 arg_sampler = zip(const_sampler(geometry), reg_param_sampler)
@@ -223,18 +277,28 @@ meta_cycle_3 = {
     'min_val': min_val,
     'max_val': max_val,
     'num_samples': num_samples,
-    'foms': tuple(foms),
+    'columns': ['x'] + foms,
 }
 
 # Rearrange data for saving
 fom_arrays_cycle_3 = [np.array([res[fom] for res in fom_values])
                       for fom in foms]
-data_cycle_3 = {fom: arr for fom, arr in zip(foms, fom_arrays_cycle_3)}
+data_cycle_3 = np.empty((num_samples, 1 + len(foms)), dtype=float)
+data_cycle_3[:, 0] = xs_cycle_3
+for i, arr in enumerate(fom_arrays_cycle_3):
+    data_cycle_3[:, i + 1] = arr
 
 # Save data
 with open(os.path.join(results_root, 'meta_cycle_3.json'), 'w') as fp:
     json.dump(meta_cycle_3, fp, indent='    ')
 
-np.save(os.path.join(results_root, 'xs_cycle_3'), xs_cycle_3)
-for fom_name, arr in data_cycle_3.items():
-    np.save(os.path.join(results_root, fom_name + '_cycle_3'), arr)
+np.save(os.path.join(results_root, 'data_cycle_3'), data_cycle_3)
+
+# %% For the records
+
+if geometry == 'parallel2d':
+    optimal_param = 4e-3
+elif geometry == 'parallel2d_lim_ang':
+    optimal_param = 3e-3
+else:
+    optimal_param = 6e-3
